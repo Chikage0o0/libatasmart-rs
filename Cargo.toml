@@ -1,0 +1,26 @@
+[package]
+name = "libatasmart"
+version = "0.1.0"
+edition = "2021"
+authors = ["libatasmart-rs contributors"]
+license = "LGPL-2.1-or-later"
+description = "ATA S.M.A.R.T. 硬盘健康监控库 (Rust 实现)"
+repository = "https://github.com/yourusername/libatasmart-rs"
+keywords = ["smart", "ata", "disk", "health", "monitoring"]
+categories = ["hardware-support", "os::linux-apis"]
+
+[dependencies]
+nix = { version = "0.27", features = ["ioctl"] }
+thiserror = "1.0"
+regex = "1.10"
+
+[dev-dependencies]
+# 用于集成测试
+
+[[example]]
+name = "skdump"
+path = "examples/skdump.rs"
+
+[lib]
+name = "atasmart"
+path = "src/lib.rs"
