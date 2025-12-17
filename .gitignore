@@ -1,0 +1,25 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+# C 原始代码
+/c-original/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# devenv
+.devenv/
+.devenv.flake.nix
+.direnv/
+.envrc
+
+# OS
+.DS_Store
+Thumbs.db
