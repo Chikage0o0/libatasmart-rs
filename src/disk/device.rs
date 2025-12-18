@@ -1,8 +1,8 @@
 //! 磁盘设备操作
 
 use crate::error::{Error, Result};
-use crate::types::*;
 use crate::ffi;
+use crate::types::*;
 use std::fs::{File, OpenOptions};
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::Path;

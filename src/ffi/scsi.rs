@@ -82,7 +82,7 @@ mod tests {
     fn test_cdb_creation() {
         let cdb12 = ScsiCdb12::new();
         assert_eq!(cdb12.data.len(), 12);
-        
+
         let cdb16 = ScsiCdb16::new();
         assert_eq!(cdb16.data.len(), 16);
     }

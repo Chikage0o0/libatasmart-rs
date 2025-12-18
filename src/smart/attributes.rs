@@ -10,7 +10,7 @@ struct AttributeInfo {
 
 /// 属性信息表 (部分实现)
 static ATTRIBUTE_INFO: [Option<AttributeInfo>; 256] = {
-    let mut arr: [Option<AttributeInfo>; 256] = [const { None }; 256];
+    let arr: [Option<AttributeInfo>; 256] = [const { None }; 256];
     // TODO: 填充属性信息表
     arr
 };

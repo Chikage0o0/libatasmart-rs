@@ -7,7 +7,6 @@ mod integration_tests {
     #[test]
     fn test_library_compiles() {
         // 基础编译测试
-        assert!(true);
     }
 
     // 注意: 以下测试需要真实的硬盘设备和 root 权限
@@ -18,7 +17,7 @@ mod integration_tests {
     fn test_open_device() {
         // 需要 root 权限和真实设备
         // 运行: sudo cargo test -- --ignored
-        
+
         let result = Disk::open("/dev/sda");
         match result {
             Ok(disk) => {

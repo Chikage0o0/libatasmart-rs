@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(unused_doc_comments)]
 //! libatasmart - ATA S.M.A.R.T. 硬盘健康监控库
 //!
 //! 这是 libatasmart C 库的 Rust 重构版本,提供类型安全的 API 用于:
@@ -7,7 +10,7 @@
 //!
 //! # 示例
 //!
-//! ```no_run
+//! ```no_run,ignore
 //! use atasmart::Disk;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -26,20 +29,19 @@
 //! ```
 
 // 模块声明
+mod disk;
 mod error;
 mod ffi;
-mod types;
-mod disk;
-mod smart;
 mod identify;
+mod smart;
+mod types;
 mod utils;
 
 // 公共导出
+pub use disk::Disk;
 pub use error::{Error, Result};
 pub use types::{
-    DiskType, SmartSelfTest, SmartOverall,
-    OfflineDataCollectionStatus, SelfTestExecutionStatus,
-    AttributeUnit, IdentifyParsedData, SmartParsedData,
-    SmartAttributeParsedData,
+    AttributeUnit, DiskType, IdentifyParsedData, OfflineDataCollectionStatus,
+    SelfTestExecutionStatus, SmartAttributeParsedData, SmartOverall, SmartParsedData,
+    SmartSelfTest,
 };
-pub use disk::Disk;

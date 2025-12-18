@@ -1,8 +1,8 @@
 //! IDENTIFY 数据解析
 
+use crate::error::Result;
 use crate::types::IdentifyParsedData;
 use crate::utils::read_ata_string;
-use crate::error::Result;
 
 /// 解析 IDENTIFY 数据
 pub(crate) fn parse_identify_data(raw: &[u8; 512]) -> Result<IdentifyParsedData> {
@@ -30,16 +30,16 @@ mod tests {
     fn test_parse_identify_data() {
         // 创建测试数据
         let mut data = [0u8; 512];
-        
+
         // 模拟序列号 "TEST1234" (需要字节交换)
         data[20] = b'E';
         data[21] = b'T';
         data[22] = b'S';
         data[23] = b'T';
-        
+
         let result = parse_identify_data(&data);
         assert!(result.is_ok());
-        
+
         let parsed = result.unwrap();
         assert!(!parsed.serial.is_empty());
     }

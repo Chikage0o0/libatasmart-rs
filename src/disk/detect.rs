@@ -1,7 +1,7 @@
 //! 磁盘设备类型检测
 
-use crate::types::DiskType;
 use crate::error::Result;
+use crate::types::DiskType;
 use std::os::unix::io::RawFd;
 
 /// 自动检测磁盘类型
@@ -13,7 +13,7 @@ pub(crate) fn detect_disk_type(_fd: RawFd) -> Result<DiskType> {
     // 2. 尝试 ATA Passthrough 12
     // 3. 尝试 Linux IDE
     // 4. 返回 None 如果都不支持
-    
+
     // 暂时返回 Auto
     Ok(DiskType::Auto)
 }

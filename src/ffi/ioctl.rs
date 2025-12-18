@@ -2,9 +2,9 @@
 //!
 //! 使用 nix crate 提供的 ioctl 宏来定义类型安全的 ioctl 调用
 
+use super::scsi::SgIoHdr;
 use nix::libc;
 use std::os::unix::io::RawFd;
-use super::scsi::SgIoHdr;
 
 // 使用 nix::ioctl_* 宏定义 ioctl 调用
 // 参考: https://docs.rs/nix/latest/nix/macro.ioctl_readwrite.html
@@ -26,12 +26,9 @@ nix::ioctl_readwrite!(sg_io, 'S', 0x85, SgIoHdr);
 nix::ioctl_read!(blkgetsize64, 0x12, 114, u64);
 
 /// 安全的 HDIO_DRIVE_CMD 封装
-pub(crate) fn drive_cmd(
-    fd: RawFd,
-    data: &mut [u8],
-) -> nix::Result<()> {
+pub(crate) fn drive_cmd(fd: RawFd, data: &mut [u8]) -> nix::Result<()> {
     assert!(data.len() >= 4, "数据缓冲区至少需要 4 字节");
-    
+
     unsafe {
         hdio_drive_cmd(fd, data.as_mut_ptr() as *mut [u8; 4])?;
     }
@@ -39,10 +36,7 @@ pub(crate) fn drive_cmd(
 }
 
 /// 安全的 HDIO_DRIVE_TASK 封装
-pub(crate) fn drive_task(
-    fd: RawFd,
-    data: &mut [u8; 7],
-) -> nix::Result<()> {
+pub(crate) fn drive_task(fd: RawFd, data: &mut [u8; 7]) -> nix::Result<()> {
     unsafe {
         hdio_drive_task(fd, data as *mut [u8; 7])?;
     }
@@ -50,10 +44,7 @@ pub(crate) fn drive_task(
 }
 
 /// 安全的 SG_IO 封装
-pub(crate) fn sg_io_cmd(
-    fd: RawFd,
-    hdr: &mut SgIoHdr,
-) -> nix::Result<()> {
+pub(crate) fn sg_io_cmd(fd: RawFd, hdr: &mut SgIoHdr) -> nix::Result<()> {
     unsafe {
         sg_io(fd, hdr)?;
     }

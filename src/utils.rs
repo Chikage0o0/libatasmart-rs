@@ -2,8 +2,8 @@
 
 /// 交换字符串中的字节对 (用于处理 ATA IDENTIFY 数据)
 pub(crate) fn swap_string_bytes(s: &mut [u8]) {
-    assert!(s.len() % 2 == 0, "字符串长度必须是偶数");
-    
+    assert!(s.len().is_multiple_of(2), "字符串长度必须是偶数");
+
     for chunk in s.chunks_exact_mut(2) {
         chunk.swap(0, 1);
     }
@@ -28,7 +28,7 @@ pub(crate) fn read_ata_string(raw: &[u8]) -> String {
     let mut buf = raw.to_vec();
     swap_string_bytes(&mut buf);
     clean_string(&mut buf);
-    
+
     let s = String::from_utf8_lossy(&buf);
     trim_spaces(&s)
 }

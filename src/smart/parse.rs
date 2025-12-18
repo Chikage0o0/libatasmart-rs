@@ -1,7 +1,7 @@
 //! SMART 数据解析
 
-use crate::types::SmartParsedData;
 use crate::error::Result;
+use crate::types::SmartParsedData;
 
 /// 解析 SMART 数据
 pub(crate) fn parse_smart_data(_raw: &[u8; 512]) -> Result<SmartParsedData> {
