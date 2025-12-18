@@ -5,13 +5,9 @@ use std::io;
 /// libatasmart 错误类型
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    /// I/O 错误
+    /// I/O 错误（包括系统调用错误）
     #[error("I/O 错误: {0}")]
     Io(#[from] io::Error),
-
-    /// Nix 系统调用错误
-    #[error("系统调用错误: {0}")]
-    Nix(#[from] nix::Error),
 
     /// 设备不支持
     #[error("设备不支持此操作: {0}")]

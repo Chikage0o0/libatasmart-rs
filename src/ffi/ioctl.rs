@@ -1,61 +1,73 @@
 //! ioctl 系统调用封装
 //!
-//! 使用 nix crate 提供的 ioctl 宏来定义类型安全的 ioctl 调用
+//! 使用 libc 提供的 ioctl 系统调用
 
 use super::scsi::SgIoHdr;
-use nix::libc;
 use std::os::unix::io::RawFd;
 
-// 使用 nix::ioctl_* 宏定义 ioctl 调用
-// 参考: https://docs.rs/nix/latest/nix/macro.ioctl_readwrite.html
+// ioctl 请求码定义
+// 参考: https://docs.kernel.org/userspace-api/ioctl/ioctl-number.html
 
-/// HDIO_DRIVE_CMD - IDE 驱动器命令 (读写)
+// 在不同平台上，ioctl 的 request 参数类型不同
+// - glibc: c_ulong (32位系统: u32, 64位系统: u64)
+// - musl: c_int (i32)
+#[cfg(target_env = "musl")]
+type IoctlRequest = libc::c_int;
+
+#[cfg(not(target_env = "musl"))]
+type IoctlRequest = libc::c_ulong;
+
+/// HDIO_DRIVE_CMD - IDE 驱动器命令
 /// 请求码: 0x031f
-nix::ioctl_readwrite!(hdio_drive_cmd, 0x03, 0x1f, [u8; 4]);
+const HDIO_DRIVE_CMD: IoctlRequest = 0x031f;
 
-/// HDIO_DRIVE_TASK - IDE 驱动器任务 (写)
+/// HDIO_DRIVE_TASK - IDE 驱动器任务
 /// 请求码: 0x031e  
-nix::ioctl_write_ptr!(hdio_drive_task, 0x03, 0x1e, [u8; 7]);
+const HDIO_DRIVE_TASK: IoctlRequest = 0x031e;
 
-/// SG_IO - SCSI 通用 I/O (读写)
+/// SG_IO - SCSI 通用 I/O
 /// 请求码: 0x2285
-nix::ioctl_readwrite!(sg_io, 'S', 0x85, SgIoHdr);
+const SG_IO: IoctlRequest = 0x2285;
 
-/// BLKGETSIZE64 - 获取块设备大小 (读)
+/// BLKGETSIZE64 - 获取块设备大小
 /// 请求码: 0x80081272
-nix::ioctl_read!(blkgetsize64, 0x12, 114, u64);
+#[cfg(target_env = "musl")]
+const BLKGETSIZE64: IoctlRequest = 0x80081272u32 as i32;
 
-/// 安全的 HDIO_DRIVE_CMD 封装
-pub(crate) fn drive_cmd(fd: RawFd, data: &mut [u8]) -> nix::Result<()> {
-    assert!(data.len() >= 4, "数据缓冲区至少需要 4 字节");
+#[cfg(not(target_env = "musl"))]
+const BLKGETSIZE64: IoctlRequest = 0x80081272;
 
-    unsafe {
-        hdio_drive_cmd(fd, data.as_mut_ptr() as *mut [u8; 4])?;
+/// 底层 ioctl 调用封装
+unsafe fn raw_ioctl<T>(fd: RawFd, request: IoctlRequest, arg: *mut T) -> std::io::Result<()> {
+    let ret = libc::ioctl(fd, request, arg);
+    if ret == -1 {
+        return Err(std::io::Error::last_os_error());
     }
     Ok(())
+}
+
+/// 安全的 HDIO_DRIVE_CMD 封装
+pub(crate) fn drive_cmd(fd: RawFd, data: &mut [u8]) -> std::io::Result<()> {
+    assert!(data.len() >= 4, "数据缓冲区至少需要 4 字节");
+
+    unsafe { raw_ioctl(fd, HDIO_DRIVE_CMD, data.as_mut_ptr() as *mut [u8; 4]) }
 }
 
 /// 安全的 HDIO_DRIVE_TASK 封装
-pub(crate) fn drive_task(fd: RawFd, data: &mut [u8; 7]) -> nix::Result<()> {
-    unsafe {
-        hdio_drive_task(fd, data as *mut [u8; 7])?;
-    }
-    Ok(())
+pub(crate) fn drive_task(fd: RawFd, data: &mut [u8; 7]) -> std::io::Result<()> {
+    unsafe { raw_ioctl(fd, HDIO_DRIVE_TASK, data as *mut [u8; 7]) }
 }
 
 /// 安全的 SG_IO 封装
-pub(crate) fn sg_io_cmd(fd: RawFd, hdr: &mut SgIoHdr) -> nix::Result<()> {
-    unsafe {
-        sg_io(fd, hdr)?;
-    }
-    Ok(())
+pub(crate) fn sg_io_cmd(fd: RawFd, hdr: &mut SgIoHdr) -> std::io::Result<()> {
+    unsafe { raw_ioctl(fd, SG_IO, hdr as *mut SgIoHdr) }
 }
 
 /// 安全的 BLKGETSIZE64 封装
-pub(crate) fn get_block_size(fd: RawFd) -> nix::Result<u64> {
+pub(crate) fn get_block_size(fd: RawFd) -> std::io::Result<u64> {
     let mut size: u64 = 0;
     unsafe {
-        blkgetsize64(fd, &mut size)?;
+        raw_ioctl(fd, BLKGETSIZE64, &mut size as *mut u64)?;
     }
     Ok(size)
 }
@@ -66,7 +78,7 @@ mod tests {
 
     #[test]
     fn test_ioctl_definitions() {
-        // 这些测试只是确保 ioctl 宏能够正确编译
+        // 这些测试只是确保 ioctl 定义能够正确编译
         // 实际的功能测试需要真实的设备
     }
 

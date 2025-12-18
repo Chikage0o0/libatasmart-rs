@@ -1,7 +1,5 @@
 //! SCSI 命令和数据结构
 
-use nix::libc;
-
 /// SCSI 数据传输方向
 pub(crate) const SG_DXFER_NONE: i32 = -1;
 pub(crate) const SG_DXFER_TO_DEV: i32 = -2;

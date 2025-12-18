@@ -29,6 +29,9 @@
   languages.rust = {
     enable = true;
     channel = "stable";
+    targets = [
+      "x86_64-unknown-linux-musl"
+    ];
   };
 
   # 进入 Shell 时的钩子

@@ -8,7 +8,7 @@ ATA S.M.A.R.T. 硬盘健康监控库 (Rust 实现)
 
 - ✅ 类型安全的 Rust API
 - ✅ 所有 unsafe 代码隔离在 FFI 模块中
-- ✅ 使用 `nix` crate 提供安全的系统调用封装
+- ✅ 使用 `libc` 进行底层系统调用，配合标准库错误处理
 - ✅ 完整的错误处理
 - ✅ SMART 数据结构化解析 (属性、健康状态、离线测试状态)
 - ✅ IDENTIFY 数据解析 (型号、序列号、固件版本)
@@ -69,7 +69,7 @@ cargo run --example test_blob
 
 - [x] 项目结构和模块划分
 - [x] 错误处理和类型定义
-- [x] FFI 层 unsafe 代码封装 (nix/ioctl)
+- [x] FFI 层 unsafe 代码封装 (libc/ioctl)
 - [x] SMART 属性全面解析 (包含 256 个已知属性定义)
 - [x] 健康状态评估规则 (基于阈值和属性)
 - [x] IDENTIFY 数据基本解析

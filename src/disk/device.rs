@@ -144,7 +144,7 @@ impl Disk {
         let identify_data = self
             .identify_data
             .as_ref()
-            .ok_or_else(|| crate::error::Error::NoData)?;
+            .ok_or(crate::error::Error::NoData)?;
 
         crate::identify::parse::parse_identify_data(identify_data)
     }
@@ -154,7 +154,7 @@ impl Disk {
         let smart_data = self
             .smart_data
             .as_ref()
-            .ok_or_else(|| crate::error::Error::NoData)?;
+            .ok_or(crate::error::Error::NoData)?;
 
         crate::smart::parse::parse_smart_data(smart_data)
     }
@@ -166,7 +166,7 @@ impl Disk {
         let smart_data = self
             .smart_data
             .as_ref()
-            .ok_or_else(|| crate::error::Error::NoData)?;
+            .ok_or(crate::error::Error::NoData)?;
 
         let thresholds = self.smart_thresholds.as_ref();
 

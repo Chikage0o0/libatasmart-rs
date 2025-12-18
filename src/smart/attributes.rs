@@ -386,10 +386,10 @@ pub(crate) fn parse_attribute(
 
     // 解析当前值和最差值
     let current_value = raw_data[3];
-    let current_value_valid = current_value >= 1 && current_value <= 0xFD;
+    let current_value_valid = (1..=0xFD).contains(&current_value);
 
     let worst_value = raw_data[4];
-    let worst_value_valid = worst_value >= 1 && worst_value <= 0xFD;
+    let worst_value_valid = (1..=0xFD).contains(&worst_value);
 
     // 提取原始值（6 字节）
     let mut raw = [0u8; 6];
@@ -428,7 +428,7 @@ pub(crate) fn parse_attribute(
             attr.threshold_valid = threshold != 0xFE;
 
             // 计算健康状态
-            if threshold >= 1 && threshold <= 0xFD {
+            if (1..=0xFD).contains(&threshold) {
                 if worst_value_valid {
                     attr.good_in_the_past = worst_value > threshold;
                     attr.good_in_the_past_valid = true;
