@@ -2,10 +2,10 @@
 name = "libatasmart"
 version = "0.1.0"
 edition = "2021"
-authors = ["libatasmart-rs contributors"]
-license = "LGPL-2.1-or-later"
+authors = ["Chikage0o0 <chikage@939.me>"]
+license = "MIT OR Apache-2.0"
 description = "ATA S.M.A.R.T. 硬盘健康监控库 (Rust 实现)"
-repository = "https://github.com/yourusername/libatasmart-rs"
+repository = "https://github.com/Chikage0o0/libatasmart-rs"
 keywords = ["smart", "ata", "disk", "health", "monitoring"]
 categories = ["hardware-support", "os::linux-apis"]
 

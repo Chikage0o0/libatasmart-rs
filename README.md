@@ -62,10 +62,10 @@ sudo ./target/debug/examples/skdump /dev/sda
 
 ## 许可证
 
-LGPL-2.1-or-later
+本项目采用 **MIT** 或 **Apache-2.0** 双协议授权。
 
-## 原始项目
+## 致谢与参考
 
-本项目基于 Lennart Poettering 的 libatasmart C 库重构而来。
+本项目基于 Lennart Poettering 的 [libatasmart](http://0pointer.de/blog/projects/being-smart.html) C 库重构而来，核心逻辑和 SMART 数据处理参考了原始实现。
 
 原始 C 代码保存在 `c-original/` 目录中供参考。
