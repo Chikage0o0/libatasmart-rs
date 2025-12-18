@@ -1,6 +1,6 @@
 //! SMART 属性解析
 
-use crate::types::{SmartAttributeParsedData, AttributeUnit};
+use crate::types::{AttributeUnit, SmartAttributeParsedData};
 
 /// 属性信息
 struct AttributeInfo {
@@ -10,7 +10,7 @@ struct AttributeInfo {
 
 /// 属性信息表 (部分实现)
 static ATTRIBUTE_INFO: [Option<AttributeInfo>; 256] = {
-    let mut arr: [Option<AttributeInfo>; 256] = [None; 256];
+    let mut arr: [Option<AttributeInfo>; 256] = [const { None }; 256];
     // TODO: 填充属性信息表
     arr
 };

@@ -28,14 +28,15 @@ fn main() {
 
 fn run(device_path: &str) -> Result<(), Error> {
     println!("正在打开设备: {}", device_path);
-    
+
     let disk = Disk::open(device_path)?;
 
     println!("\n=== 设备信息 ===");
     println!("设备类型: {:?}", disk.disk_type());
-    println!("设备大小: {} 字节 ({:.2} GB)", 
-        disk.size(), 
-        disk.size() as f64 / 1_000_000_000.0
+    println!(
+        "设备大小: {} 字节 ({:.2} GB)",
+        disk.size(),
+        disk.size() as f64 / 2.0f64.powi(30)
     );
 
     // TODO: 添加更多功能
