@@ -1,0 +1,42 @@
+name: Rust CI (devenv)
+
+on:
+  push:
+    branches: [ "master", "main", "dev" ]
+  pull_request:
+    branches: [ "master", "main", "dev" ]
+
+jobs:
+  test:
+    name: 基于 devenv 的测试与检查
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v5
+
+      - name: 安装 Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 使用 Magic Nix 缓存
+        uses: DeterminateSystems/magic-nix-cache-action@v13
+
+      - name: 使用 Devenv 公共缓存 (Cachix)
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+
+      - name: 安装 devenv.sh
+        run: nix profile install nixpkgs#devenv
+
+      - name: 运行 devenv 测试 (enterTest)
+        run: devenv test
+
+      - name: 检查代码格式
+        run: devenv shell cargo fmt --all -- --check
+
+      - name: 运行 Clippy
+        run: devenv shell cargo clippy --all-targets --all-features -- -D warnings
+
+
