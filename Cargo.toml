@@ -10,8 +10,8 @@ keywords = ["smart", "ata", "disk", "health", "monitoring"]
 categories = ["hardware-support", "os::linux-apis"]
 
 [dependencies]
-nix = { version = "0.27", features = ["ioctl"] }
-thiserror = "1.0"
+nix = { version = "0.30.1", features = ["ioctl"] }
+thiserror = "2.0.17"
 regex = "1.10"
 
 [dev-dependencies]
