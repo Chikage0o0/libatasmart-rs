@@ -1,7 +1,8 @@
 //! SMART 数据读取
 
 use crate::disk::Disk;
-use crate::error::Result;
+use crate::error::{Error, Result};
+use crate::types::DiskType;
 
 impl Disk {
     /// 读取 SMART 数据
@@ -28,6 +29,13 @@ impl Disk {
     /// * `Ok(true)` - SMART 状态良好
     /// * `Ok(false)` - SMART 检测到问题
     pub fn smart_status(&self) -> Result<bool> {
+        // 对于 blob 类型，直接返回存储的状态
+        if self.disk_type() == DiskType::Blob {
+            return self
+                .get_smart_status_internal()
+                .ok_or_else(|| Error::NotSupported("Blob 数据中没有 SMART 状态".to_string()));
+        }
+
         // TODO: 实现 SMART 状态检查
         // 发送 SMART RETURN STATUS 命令
         Ok(true)

@@ -18,12 +18,12 @@
 //! let disk = Disk::open("/dev/sda")?;
 //!
 //! // 读取 SMART 数据
-//! let smart_data = disk.smart_parse()?;
+//! let smart_data = disk.parse_smart()?;
 //! println!("磁盘健康状态: {:?}", smart_data);
 //!
-//! // 获取整体健康评估
-//! let overall = disk.smart_get_overall()?;
-//! println!("整体状态: {:?}", overall);
+//! // 获取坏扇区数
+//! let bad_sectors = disk.smart_get_bad_sectors()?;
+//! println!("坏扇区数: {}", bad_sectors);
 //! # Ok(())
 //! # }
 //! ```
@@ -40,6 +40,7 @@ mod utils;
 // 公共导出
 pub use disk::Disk;
 pub use error::{Error, Result};
+pub use smart::{disk_from_blob, read_blob_from_file, BlobData};
 pub use types::{
     AttributeUnit, DiskType, IdentifyParsedData, OfflineDataCollectionStatus,
     SelfTestExecutionStatus, SmartAttributeParsedData, SmartOverall, SmartParsedData,

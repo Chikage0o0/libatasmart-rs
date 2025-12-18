@@ -14,16 +14,16 @@ pub enum Error {
     Nix(#[from] nix::Error),
 
     /// 设备不支持
-    #[error("设备不支持此操作")]
-    NotSupported,
+    #[error("设备不支持此操作: {0}")]
+    NotSupported(String),
 
     /// SMART 不可用
     #[error("SMART 功能不可用")]
     SmartNotAvailable,
 
     /// 数据无效
-    #[error("数据无效或损坏")]
-    InvalidData,
+    #[error("数据无效或损坏: {0}")]
+    InvalidData(String),
 
     /// 设备处于睡眠状态
     #[error("设备处于睡眠状态")]

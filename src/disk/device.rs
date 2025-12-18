@@ -9,12 +9,13 @@ use std::path::Path;
 
 /// 磁盘设备句柄
 pub struct Disk {
-    file: File,
+    file: Option<File>,
     disk_type: DiskType,
     size: u64,
     identify_data: Option<[u8; 512]>,
     smart_data: Option<[u8; 512]>,
     smart_thresholds: Option<[u8; 512]>,
+    smart_status: Option<bool>,
 }
 
 impl Disk {
@@ -48,18 +49,19 @@ impl Disk {
         let disk_type = super::detect::detect_disk_type(fd)?;
 
         Ok(Self {
-            file,
+            file: Some(file),
             disk_type,
             size,
             identify_data: None,
             smart_data: None,
             smart_thresholds: None,
+            smart_status: None,
         })
     }
 
     /// 获取文件描述符
     pub(crate) fn fd(&self) -> RawFd {
-        self.file.as_raw_fd()
+        self.file.as_ref().expect("Disk 没有文件句柄").as_raw_fd()
     }
 
     /// 获取磁盘大小 (字节)
@@ -85,17 +87,17 @@ impl Disk {
     }
 
     /// 获取 IDENTIFY 数据
-    pub(crate) fn identify_data(&self) -> Option<&[u8; 512]> {
+    pub fn identify_data(&self) -> Option<&[u8; 512]> {
         self.identify_data.as_ref()
     }
 
     /// 获取 SMART 数据
-    pub(crate) fn smart_data(&self) -> Option<&[u8; 512]> {
+    pub fn smart_data(&self) -> Option<&[u8; 512]> {
         self.smart_data.as_ref()
     }
 
     /// 获取 SMART 阈值数据
-    pub(crate) fn smart_thresholds(&self) -> Option<&[u8; 512]> {
+    pub fn smart_thresholds(&self) -> Option<&[u8; 512]> {
         self.smart_thresholds.as_ref()
     }
 
@@ -112,6 +114,88 @@ impl Disk {
     /// 设置 SMART 阈值数据
     pub(crate) fn set_smart_thresholds(&mut self, data: [u8; 512]) {
         self.smart_thresholds = Some(data);
+    }
+
+    /// 从 blob 数据创建 Disk 实例
+    pub(crate) fn from_blob() -> Result<Self> {
+        Ok(Self {
+            file: None,
+            disk_type: DiskType::Blob,
+            size: 0,
+            identify_data: None,
+            smart_data: None,
+            smart_thresholds: None,
+            smart_status: None,
+        })
+    }
+
+    /// 设置 SMART 状态
+    pub(crate) fn set_smart_status(&mut self, status: bool) {
+        self.smart_status = Some(status);
+    }
+
+    /// 获取 SMART 状态（内部使用）
+    pub(crate) fn get_smart_status_internal(&self) -> Option<bool> {
+        self.smart_status
+    }
+
+    /// 解析 IDENTIFY 数据
+    pub fn parse_identify(&self) -> crate::error::Result<crate::types::IdentifyParsedData> {
+        let identify_data = self
+            .identify_data
+            .as_ref()
+            .ok_or_else(|| crate::error::Error::NoData)?;
+
+        crate::identify::parse::parse_identify_data(identify_data)
+    }
+
+    /// 解析 SMART 数据
+    pub fn parse_smart(&self) -> crate::error::Result<crate::types::SmartParsedData> {
+        let smart_data = self
+            .smart_data
+            .as_ref()
+            .ok_or_else(|| crate::error::Error::NoData)?;
+
+        crate::smart::parse::parse_smart_data(smart_data)
+    }
+
+    /// 解析 SMART 属性
+    pub fn parse_smart_attributes(
+        &self,
+    ) -> crate::error::Result<Vec<crate::types::SmartAttributeParsedData>> {
+        let smart_data = self
+            .smart_data
+            .as_ref()
+            .ok_or_else(|| crate::error::Error::NoData)?;
+
+        let thresholds = self.smart_thresholds.as_ref();
+
+        let mut attributes = Vec::new();
+
+        // SMART 数据从字节 2 开始，每个属性 12 字节，共 30 个槽位
+        for i in 0..30 {
+            let offset = 2 + i * 12;
+            let attr_data = &smart_data[offset..offset + 12];
+
+            // 查找对应的阈值数据
+            let threshold_data = thresholds.and_then(|t| {
+                for j in 0..30 {
+                    let t_offset = 2 + j * 12;
+                    if t[t_offset] == attr_data[0] && attr_data[0] != 0 {
+                        return Some(&t[t_offset..t_offset + 12]);
+                    }
+                }
+                None
+            });
+
+            if let Some(attr) =
+                crate::smart::attributes::parse_attribute(attr_data, threshold_data, self.size)
+            {
+                attributes.push(attr);
+            }
+        }
+
+        Ok(attributes)
     }
 }
 
