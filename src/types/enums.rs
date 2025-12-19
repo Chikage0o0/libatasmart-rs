@@ -21,6 +21,36 @@ pub enum DiskType {
     None,
 }
 
+impl DiskType {
+    /// 转换为人类可读的字符串
+    pub fn to_human_string(&self) -> &'static str {
+        match self {
+            Self::AtaPassthrough16 => "16 字节 SCSI ATA SAT Passthru",
+            Self::AtaPassthrough12 => "12 字节 SCSI ATA SAT Passthru",
+            Self::LinuxIde => "原生 Linux IDE",
+            Self::Sunplus => "Sunplus SCSI ATA Passthru",
+            Self::Jmicron => "JMicron SCSI ATA Passthru",
+            Self::Blob => "Blob 文件",
+            Self::Auto => "自动检测",
+            Self::None => "无",
+        }
+    }
+
+    /// 转换为前缀字符串
+    pub fn to_prefix_string(&self) -> Option<&'static str> {
+        match self {
+            Self::AtaPassthrough16 => Some("sat16"),
+            Self::AtaPassthrough12 => Some("sat12"),
+            Self::LinuxIde => Some("linux-ide"),
+            Self::Sunplus => Some("sunplus"),
+            Self::Jmicron => Some("jmicron"),
+            Self::Auto => Some("auto"),
+            Self::None => Some("none"),
+            Self::Blob => None,
+        }
+    }
+}
+
 /// SMART 自检类型
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SmartSelfTest {

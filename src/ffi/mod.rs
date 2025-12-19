@@ -4,5 +4,6 @@
 //! 所有 unsafe 代码都被封装在此模块中,不对外导出。
 
 pub(crate) mod ata;
+pub(crate) mod commands;
 pub(crate) mod ioctl;
 pub(crate) mod scsi;

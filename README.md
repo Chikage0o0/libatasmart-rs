@@ -13,7 +13,7 @@ ATA S.M.A.R.T. 硬盘健康监控库 (Rust 实现)
 - ✅ SMART 数据结构化解析 (属性、健康状态、离线测试状态)
 - ✅ IDENTIFY 数据解析 (型号、序列号、固件版本)
 - ✅ 支持从 Blob 文件加载数据进行离线分析
-- 🚧 自动磁盘类型检测 (开发中)
+- ✅ 自动磁盘类型检测
 - 🚧 实时设备数据读取 (开发中)
 - 🚧 执行硬盘自检 (计划中)
 
@@ -74,7 +74,7 @@ cargo run --example test_blob
 - [x] 健康状态评估规则 (基于阈值和属性)
 - [x] IDENTIFY 数据基本解析
 - [x] 支持从 Blob 加载数据用于测试和离线分析
-- [ ] 自动设备类型检测逻辑 (AtaPassthrough/LinuxIde 等)
+- [x] 自动设备类型检测逻辑 (AtaPassthrough/LinuxIde 等)
 - [ ] 实时设备数据抓取 (实现 ioctl 交互逻辑)
 - [ ] 完善 `skdump` 示例工具的输出内容
 - [ ] 硬盘自检触发功能
@@ -89,3 +89,4 @@ cargo run --example test_blob
 本项目基于 Lennart Poettering 的 [libatasmart](http://0pointer.de/blog/projects/being-smart.html) C 库重构而来，核心逻辑和 SMART 数据处理参考了原始实现。
 
 原始 C 代码保存在 `c-original/` 目录中供参考。
+
