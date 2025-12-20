@@ -14,7 +14,8 @@ ATA S.M.A.R.T. 硬盘健康监控库 (Rust 实现)
 - ✅ IDENTIFY 数据解析 (型号、序列号、固件版本)
 - ✅ 支持从 Blob 文件加载数据进行离线分析
 - ✅ 自动磁盘类型检测
-- 🚧 实时设备数据读取 (开发中)
+- ✅ 实时设备数据读取 (IDENTIFY、SMART数据、SMART阈值、健康状态)
+- ✅ 设备睡眠模式检查
 - 🚧 执行硬盘自检 (计划中)
 
 ## 平台支持
@@ -23,22 +24,30 @@ ATA S.M.A.R.T. 硬盘健康监控库 (Rust 实现)
 
 ## 使用示例
 
+### 从实际设备读取数据
+
 ```rust
 use atasmart::Disk;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. 打开磁盘设备 (从 Blob 文件读取示例)
-    // 实际使用时可以使用 Disk::open("/dev/sda")
-    let disk = atasmart::disk_from_blob("tests/blobs/st3500320as.blob")?;
+    // 1. 打开磁盘设备 (需要root权限)
+    let mut disk = Disk::open("/dev/sda")?;
 
-    // 2. 获取基本信息
-    println!("设备大小: {} 字节", disk.size());
+    // 2. 读取IDENTIFY数据
+    disk.read_identify()?;
+    let identify = disk.parse_identify()?;
+    println!("型号: {}", identify.model);
+    println!("序列号: {}", identify.serial);
     
-    // 3. 解析 SMART 数据
-    let smart_data = disk.parse_smart()?;
-    println!("自检状态: {:?}", smart_data.self_test_execution_status);
+    // 3. 读取SMART数据
+    disk.read_smart_data()?;
+    disk.read_smart_thresholds()?;
+    
+    // 4. 获取SMART健康状态
+    let status = disk.smart_status()?;
+    println!("SMART状态: {}", if status { "良好" } else { "异常" });
 
-    // 4. 解析属性
+    // 5. 解析SMART属性
     let attributes = disk.parse_smart_attributes()?;
     for attr in attributes {
         if attr.warn {
@@ -50,17 +59,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+### 从Blob文件读取数据
+
+```rust
+use atasmart::disk_from_blob;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut disk = disk_from_blob("tests/blobs/st3500320as.blob")?;
+    
+    // Blob文件已包含数据,可直接解析
+    let smart_data = disk.parse_smart()?;
+    println!("自检状态: {:?}", smart_data.self_test_execution_status);
+
+    Ok(())
+}
+```
+
 ## 命令行工具
 
 ```bash
-# 编译示例程序
-cargo build --example skdump
+# 编译所有示例程序
+cargo build --examples
 
-# 运行 (需要 root 权限，如果是真实设备)
+# 运行 skdump (显示完整SMART信息)
 sudo ./target/debug/examples/skdump /dev/sda
 
-# 运行测试 Blob 解析
-cargo run --example test_blob
+# 运行 read_smart (演示实时数据读取)
+sudo ./target/debug/examples/read_smart /dev/sda
+
+# 运行 test_blob (测试Blob文件解析)
+cargo run --example test_blob assets/blob-examples/FUJITSU_MHY2120BH--0084000D
 ```
 
 ## 开发状态
@@ -75,8 +103,10 @@ cargo run --example test_blob
 - [x] IDENTIFY 数据基本解析
 - [x] 支持从 Blob 加载数据用于测试和离线分析
 - [x] 自动设备类型检测逻辑 (AtaPassthrough/LinuxIde 等)
-- [ ] 实时设备数据抓取 (实现 ioctl 交互逻辑)
-- [ ] 完善 `skdump` 示例工具的输出内容
+- [x] 实时设备数据读取 (read_identify、read_smart_data、read_smart_thresholds)
+- [x] SMART健康状态查询 (smart_status)
+- [x] 设备睡眠模式检查 (check_sleep_mode)
+- [x] 完善 `skdump` 和 `read_smart` 示例工具
 - [ ] 硬盘自检触发功能
 - [ ] 完整的测试覆盖和 CI 文档
 

@@ -34,7 +34,7 @@ fn run(blob_path: &str) -> Result<(), Error> {
     println!();
 
     // 从 blob 文件创建 Disk
-    let disk = disk_from_blob(blob_path)?;
+    let mut disk = disk_from_blob(blob_path)?;
 
     println!("=== 设备信息 ===");
     println!("设备类型: {:?}", disk.disk_type());

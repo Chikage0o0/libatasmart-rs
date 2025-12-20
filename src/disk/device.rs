@@ -80,10 +80,277 @@ impl Disk {
     ///
     /// * `Ok(true)` - 设备处于活动或空闲状态
     /// * `Ok(false)` - 设备处于睡眠状态
+    ///
+    /// # 示例
+    ///
+    /// ```no_run
+    /// use atasmart::Disk;
+    ///
+    /// let disk = Disk::open("/dev/sda")?;
+    /// let awake = disk.check_sleep_mode()?;
+    /// println!("设备状态: {}", if awake { "活动" } else { "睡眠" });
+    /// # Ok::<(), atasmart::Error>(())
+    /// ```
     pub fn check_sleep_mode(&self) -> Result<bool> {
-        // TODO: 实现睡眠模式检查
-        // 使用 CHECK_POWER_MODE 命令
-        Ok(true)
+        // Blob类型不支持
+        if self.disk_type == DiskType::Blob {
+            return Err(Error::NotSupported(
+                "Blob类型不支持睡眠模式检查".to_string(),
+            ));
+        }
+
+        // 需要先有IDENTIFY数据
+        if self.identify_data.is_none() {
+            return Err(Error::NotSupported("需要先读取IDENTIFY数据".to_string()));
+        }
+
+        let fd = self.fd();
+        let mut registers = ffi::commands::AtaRegisters::new();
+
+        // 发送 CHECK_POWER_MODE 命令
+        ffi::commands::send_ata_command(
+            fd,
+            self.disk_type,
+            ffi::ata::AtaCommand::CheckPowerMode,
+            ffi::ata::Direction::None,
+            &mut registers,
+            None,
+        )?;
+
+        // 检查返回状态
+        // cmd[0] 应该是 0, cmd[5] 的最低位应该是 0
+        if registers.data[0] != 0 || (registers.data[5] & 1) != 0 {
+            return Err(
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "无效的电源模式响应").into(),
+            );
+        }
+
+        // 获取状态值 (SECTOR COUNT 寄存器)
+        let status = registers.data[3];
+
+        // 0xFF = active/idle, 0x80 = idle
+        // 其他值表示睡眠或待机状态
+        Ok(status == 0xFF || status == 0x80)
+    }
+
+    /// 从设备读取 IDENTIFY 数据
+    ///
+    /// # 示例
+    ///
+    /// ```no_run
+    /// use atasmart::Disk;
+    ///
+    /// let mut disk = Disk::open("/dev/sda")?;
+    /// disk.read_identify()?;
+    /// # Ok::<(), atasmart::Error>(())
+    /// ```
+    pub fn read_identify(&mut self) -> Result<()> {
+        // Blob类型不支持
+        if self.disk_type == DiskType::Blob {
+            return Ok(());
+        }
+
+        let fd = self.fd();
+        let mut data = [0u8; 512];
+        let mut registers = ffi::commands::AtaRegisters::new();
+        registers.set_sector_count(1);
+
+        // 发送 IDENTIFY DEVICE 命令
+        ffi::commands::send_ata_command(
+            fd,
+            self.disk_type,
+            ffi::ata::AtaCommand::IdentifyDevice,
+            ffi::ata::Direction::In,
+            &mut registers,
+            Some(&mut data),
+        )?;
+
+        // 检查数据是否全为0 (无效)
+        if data.iter().all(|&b| b == 0) {
+            return Err(
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "IDENTIFY数据全为0").into(),
+            );
+        }
+
+        self.identify_data = Some(data);
+        Ok(())
+    }
+
+    /// 从设备读取 SMART 数据
+    ///
+    /// # 示例
+    ///
+    /// ```no_run
+    /// use atasmart::Disk;
+    ///
+    /// let mut disk = Disk::open("/dev/sda")?;
+    /// disk.read_identify()?;
+    /// disk.read_smart_data()?;
+    /// # Ok::<(), atasmart::Error>(())
+    /// ```
+    pub fn read_smart_data(&mut self) -> Result<()> {
+        // 检查SMART是否可用
+        if !self.is_smart_available()? {
+            return Err(Error::NotSupported("SMART功能不可用".to_string()));
+        }
+
+        // Blob类型不支持
+        if self.disk_type == DiskType::Blob {
+            return Ok(());
+        }
+
+        let fd = self.fd();
+        let mut data = [0u8; 512];
+        let mut registers = ffi::commands::AtaRegisters::new();
+
+        // 设置SMART READ DATA命令参数
+        registers.set_features(ffi::ata::SmartCommand::ReadData as u8);
+        registers.set_sector_count(1);
+        registers.set_lba_low(0x00);
+        registers.set_lba_mid(0x4F);
+        registers.set_lba_high(0xC2);
+
+        // 发送 SMART 命令
+        ffi::commands::send_ata_command(
+            fd,
+            self.disk_type,
+            ffi::ata::AtaCommand::Smart,
+            ffi::ata::Direction::In,
+            &mut registers,
+            Some(&mut data),
+        )?;
+
+        self.smart_data = Some(data);
+        Ok(())
+    }
+
+    /// 从设备读取 SMART 阈值数据
+    ///
+    /// # 示例
+    ///
+    /// ```no_run
+    /// use atasmart::Disk;
+    ///
+    /// let mut disk = Disk::open("/dev/sda")?;
+    /// disk.read_identify()?;
+    /// disk.read_smart_thresholds()?;
+    /// # Ok::<(), atasmart::Error>(())
+    /// ```
+    pub fn read_smart_thresholds(&mut self) -> Result<()> {
+        // 检查SMART是否可用
+        if !self.is_smart_available()? {
+            return Err(Error::NotSupported("SMART功能不可用".to_string()));
+        }
+
+        // Blob类型不支持
+        if self.disk_type == DiskType::Blob {
+            return Ok(());
+        }
+
+        let fd = self.fd();
+        let mut data = [0u8; 512];
+        let mut registers = ffi::commands::AtaRegisters::new();
+
+        // 设置SMART READ THRESHOLDS命令参数
+        registers.set_features(ffi::ata::SmartCommand::ReadThresholds as u8);
+        registers.set_sector_count(1);
+        registers.set_lba_low(0x00);
+        registers.set_lba_mid(0x4F);
+        registers.set_lba_high(0xC2);
+
+        // 发送 SMART 命令
+        ffi::commands::send_ata_command(
+            fd,
+            self.disk_type,
+            ffi::ata::AtaCommand::Smart,
+            ffi::ata::Direction::In,
+            &mut registers,
+            Some(&mut data),
+        )?;
+
+        self.smart_thresholds = Some(data);
+        Ok(())
+    }
+
+    /// 获取 SMART 健康状态
+    ///
+    /// # 返回
+    ///
+    /// * `Ok(true)` - SMART状态良好
+    /// * `Ok(false)` - SMART状态异常,磁盘可能即将故障
+    ///
+    /// # 示例
+    ///
+    /// ```no_run
+    /// use atasmart::Disk;
+    ///
+    /// let mut disk = Disk::open("/dev/sda")?;
+    /// disk.read_identify()?;
+    /// let status = disk.smart_status()?;
+    /// println!("SMART状态: {}", if status { "良好" } else { "异常" });
+    /// # Ok::<(), atasmart::Error>(())
+    /// ```
+    pub fn smart_status(&mut self) -> Result<bool> {
+        // 检查SMART是否可用
+        if !self.is_smart_available()? {
+            return Err(Error::NotSupported("SMART功能不可用".to_string()));
+        }
+
+        // Blob类型使用缓存的状态
+        if self.disk_type == DiskType::Blob {
+            return self.smart_status.ok_or(Error::NoData);
+        }
+
+        let fd = self.fd();
+        let mut registers = ffi::commands::AtaRegisters::new();
+
+        // 设置SMART RETURN STATUS命令参数
+        registers.set_features(ffi::ata::SmartCommand::ReturnStatus as u8);
+        registers.set_lba_low(0x00);
+        registers.set_lba_mid(0x4F);
+        registers.set_lba_high(0xC2);
+
+        // 发送 SMART 命令
+        ffi::commands::send_ata_command(
+            fd,
+            self.disk_type,
+            ffi::ata::AtaCommand::Smart,
+            ffi::ata::Direction::None,
+            &mut registers,
+            None,
+        )?;
+
+        // 检查返回的LBA寄存器值
+        // LBA MID = 0x4F, LBA HIGH = 0xC2 表示状态良好
+        // LBA MID = 0xF4, LBA HIGH = 0x2C 表示状态异常
+        let lba_mid = registers.data[8];
+        let lba_high = registers.data[7];
+
+        let good = if (self.disk_type == DiskType::AtaPassthrough12 || lba_high == 0xC2)
+            && lba_mid == 0x4F
+        {
+            true
+        } else if (self.disk_type == DiskType::AtaPassthrough12 || lba_high == 0x2C)
+            && lba_mid == 0xF4
+        {
+            false
+        } else {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "无效的SMART状态响应",
+            )
+            .into());
+        };
+
+        self.smart_status = Some(good);
+        Ok(good)
+    }
+
+    /// 检查SMART是否可用
+    fn is_smart_available(&self) -> Result<bool> {
+        let identify = self.identify_data.as_ref().ok_or(Error::NoData)?;
+        // IDENTIFY word 82 bit 0 表示SMART是否支持
+        Ok((identify[164] & 1) != 0)
     }
 
     /// 获取 IDENTIFY 数据
