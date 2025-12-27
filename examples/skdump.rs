@@ -75,14 +75,55 @@ fn run(device_path: &str) -> Result<(), Error> {
             if let Ok(smart) = disk.parse_smart() {
                 println!("\n=== SMART总体信息 ===");
                 println!(
-                    "离线数据收集状态: {:?}",
-                    smart.offline_data_collection_status
+                    "离线数据收集状态: {}",
+                    smart.offline_data_collection_status.as_str()
                 );
                 println!(
                     "离线数据收集总秒数: {}",
                     smart.total_offline_data_collection_seconds
                 );
-                println!("自检执行状态: {:?}", smart.self_test_execution_status);
+
+                // 自检状态和进度
+                println!("\n--- 自检状态 ---");
+                println!("执行状态: {}", smart.self_test_execution_status.as_str());
+
+                // 如果自检正在进行,显示进度
+                if smart.self_test_execution_percent_remaining > 0 {
+                    let completed = 100 - smart.self_test_execution_percent_remaining;
+                    println!(
+                        "进度: {}% (剩余 {}%)",
+                        completed, smart.self_test_execution_percent_remaining
+                    );
+                }
+
+                // 显示可用的自检类型和预计时间
+                println!("\n--- 可用的自检类型 ---");
+
+                use atasmart::SmartSelfTest;
+
+                if smart.self_test_available(SmartSelfTest::Short) {
+                    println!("✓ 短时自检");
+                } else {
+                    println!("✗ 短时自检 (不可用)");
+                }
+
+                if smart.self_test_available(SmartSelfTest::Extended) {
+                    println!("✓ 扩展自检");
+                } else {
+                    println!("✗ 扩展自检 (不可用)");
+                }
+
+                if smart.self_test_available(SmartSelfTest::Conveyance) {
+                    println!("✓ 传输自检");
+                } else {
+                    println!("✗ 传输自检 (不可用)");
+                }
+
+                if smart.abort_test_available {
+                    println!("✓ 中止自检");
+                } else {
+                    println!("✗ 中止自检 (不可用)");
+                }
             }
 
             // 显示统计信息

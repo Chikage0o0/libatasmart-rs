@@ -64,6 +64,18 @@ pub enum SmartSelfTest {
     Abort = 127,
 }
 
+impl SmartSelfTest {
+    /// 转换为字符串描述
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Short => "short",
+            Self::Extended => "extended",
+            Self::Conveyance => "conveyance",
+            Self::Abort => "abort",
+        }
+    }
+}
+
 /// 离线数据收集状态
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OfflineDataCollectionStatus {

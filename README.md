@@ -16,7 +16,7 @@ ATA S.M.A.R.T. 硬盘健康监控库 (Rust 实现)
 - ✅ 自动磁盘类型检测
 - ✅ 实时设备数据读取 (IDENTIFY、SMART数据、SMART阈值、健康状态)
 - ✅ 设备睡眠模式检查
-- 🚧 执行硬盘自检 (计划中)
+- ✅ 执行硬盘自检 (短时/扩展/传输/中止)
 
 ## 平台支持
 
@@ -89,6 +89,9 @@ sudo ./target/debug/examples/read_smart /dev/sda
 
 # 运行 test_blob (测试Blob文件解析)
 cargo run --example test_blob assets/blob-examples/FUJITSU_MHY2120BH--0084000D
+
+# 运行 self_test (执行硬盘自检)
+sudo ./target/debug/examples/self_test /dev/sda short
 ```
 
 ## 开发状态
@@ -107,7 +110,7 @@ cargo run --example test_blob assets/blob-examples/FUJITSU_MHY2120BH--0084000D
 - [x] SMART健康状态查询 (smart_status)
 - [x] 设备睡眠模式检查 (check_sleep_mode)
 - [x] 完善 `skdump` 和 `read_smart` 示例工具
-- [ ] 硬盘自检触发功能
+- [x] 硬盘自检触发功能 (smart_self_test)
 - [ ] 完整的测试覆盖和 CI 文档
 
 ## 许可证

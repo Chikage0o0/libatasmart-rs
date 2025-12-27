@@ -346,6 +346,80 @@ impl Disk {
         Ok(good)
     }
 
+    /// 执行硬盘自检
+    ///
+    /// # 参数
+    ///
+    /// * `test` - 自检类型 (短时/扩展/传输/中止)
+    ///
+    /// # 返回
+    ///
+    /// * `Ok(())` - 自检已成功启动
+    /// * `Err(Error::NotSupported)` - 自检功能不可用或不支持该类型的自检
+    ///
+    /// # 示例
+    ///
+    /// ```no_run
+    /// use atasmart::{Disk, SmartSelfTest};
+    ///
+    /// let mut disk = Disk::open("/dev/sda")?;
+    /// disk.read_identify()?;
+    /// disk.read_smart_data()?;
+    ///
+    /// // 启动短时自检
+    /// disk.smart_self_test(SmartSelfTest::Short)?;
+    /// println!("短时自检已启动");
+    /// # Ok::<(), atasmart::Error>(())
+    /// ```
+    pub fn smart_self_test(&mut self, test: SmartSelfTest) -> Result<()> {
+        // 检查SMART是否可用
+        if !self.is_smart_available()? {
+            return Err(Error::NotSupported("SMART功能不可用".to_string()));
+        }
+
+        // Blob类型不支持
+        if self.disk_type == DiskType::Blob {
+            return Err(Error::NotSupported("Blob类型不支持自检".to_string()));
+        }
+
+        // 确保SMART数据已读取
+        if self.smart_data.is_none() {
+            // 尝试读取SMART数据
+            self.read_smart_data()?;
+        }
+
+        // 解析SMART数据以检查自检功能可用性
+        let smart_data = self.parse_smart()?;
+
+        // 检查自检功能是否可用
+        if !smart_data.self_test_available(test) {
+            return Err(Error::NotSupported(format!("{} 自检不可用", test.as_str())));
+        }
+
+        let fd = self.fd();
+        let mut registers = ffi::commands::AtaRegisters::new();
+
+        // 设置SMART EXECUTE OFFLINE IMMEDIATE命令参数
+        registers.set_features(ffi::ata::SmartCommand::ExecuteOfflineImmediate as u8);
+        registers.set_lba_low(0x00);
+        registers.set_lba_mid(0x4F);
+        registers.set_lba_high(0xC2);
+        // 测试类型放在LBA LOW寄存器的低字节
+        registers.data[9] = test as u8;
+
+        // 发送 SMART 命令
+        ffi::commands::send_ata_command(
+            fd,
+            self.disk_type,
+            ffi::ata::AtaCommand::Smart,
+            ffi::ata::Direction::None,
+            &mut registers,
+            None,
+        )?;
+
+        Ok(())
+    }
+
     /// 检查SMART是否可用
     fn is_smart_available(&self) -> Result<bool> {
         let identify = self.identify_data.as_ref().ok_or(Error::NoData)?;
