@@ -190,31 +190,55 @@ fn parse_blob(data: &[u8]) -> Result<BlobData> {
     Ok(blob_data)
 }
 
-/// 从 blob 文件创建 Disk 实例
-pub fn disk_from_blob<P: AsRef<Path>>(path: P) -> Result<Disk> {
+/// 从 blob 文件读取数据并创建 SmartInfo
+///
+/// 这个函数读取 blob 文件并返回包含 SMART 数据的 `SmartInfo` 对象。
+/// Blob 文件通常用于离线分析和测试。
+///
+/// # 示例
+///
+/// ```no_run
+/// use libatasmart::smart_info_from_blob;
+///
+/// let smart = smart_info_from_blob("tests/blobs/example.blob")?;
+/// let stats = smart.statistics();
+/// # Ok::<(), libatasmart::Error>(())
+/// ```
+pub fn smart_info_from_blob<P: AsRef<Path>>(path: P) -> Result<crate::disk::SmartInfo> {
     let blob_data = read_blob_from_file(path)?;
 
-    // 创建一个 blob 类型的 Disk
-    let mut disk = Disk::from_blob()?;
+    let smart_data = blob_data
+        .smart_data
+        .ok_or(Error::InvalidData("Blob 缺少 SMART 数据".to_string()))?;
 
-    // 设置数据
-    if let Some(identify) = blob_data.identify {
-        disk.set_identify_data(identify);
-    }
+    let smart_data_obj = crate::disk::SmartData::new(smart_data, 0);
+    let thresholds_obj = blob_data
+        .smart_thresholds
+        .map(crate::disk::SmartThresholds::new);
 
-    if let Some(smart_data) = blob_data.smart_data {
-        disk.set_smart_data(smart_data);
-    }
+    Ok(crate::disk::SmartInfo::new(smart_data_obj, thresholds_obj))
+}
 
-    if let Some(thresholds) = blob_data.smart_thresholds {
-        disk.set_smart_thresholds(thresholds);
-    }
+/// 从 blob 文件读取 IDENTIFY 数据
+///
+/// # 示例
+///
+/// ```no_run
+/// use libatasmart::identify_from_blob;
+///
+/// let identify = identify_from_blob("tests/blobs/example.blob")?;
+/// let info = identify.parse()?;
+/// println!("型号: {}", info.model);
+/// # Ok::<(), libatasmart::Error>(())
+/// ```
+pub fn identify_from_blob<P: AsRef<Path>>(path: P) -> Result<crate::disk::IdentifyData> {
+    let blob_data = read_blob_from_file(path)?;
 
-    if let Some(status) = blob_data.smart_status {
-        disk.set_smart_status(status);
-    }
+    let identify = blob_data
+        .identify
+        .ok_or(Error::InvalidData("Blob 缺少 IDENTIFY 数据".to_string()))?;
 
-    Ok(disk)
+    Ok(crate::disk::IdentifyData::new(identify))
 }
 
 #[cfg(test)]

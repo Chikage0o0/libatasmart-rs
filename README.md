@@ -27,28 +27,38 @@ ATA S.M.A.R.T. 硬盘健康监控库 (Rust 实现)
 ### 从实际设备读取数据
 
 ```rust
-use atasmart::Disk;
+use libatasmart::Disk;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. 打开磁盘设备 (需要root权限)
-    let mut disk = Disk::open("/dev/sda")?;
+    let disk = Disk::open("/dev/sda")?;
 
-    // 2. 读取IDENTIFY数据
-    disk.read_identify()?;
-    let identify = disk.parse_identify()?;
+    // 2. 读取并解析 IDENTIFY 数据
+    let identify = disk.read_identify()?.parse()?;
     println!("型号: {}", identify.model);
     println!("序列号: {}", identify.serial);
     
-    // 3. 读取SMART数据
-    disk.read_smart_data()?;
-    disk.read_smart_thresholds()?;
+    // 3. 读取 SMART 信息
+    let smart = disk.read_smart()?;
     
-    // 4. 获取SMART健康状态
-    let status = disk.smart_status()?;
-    println!("SMART状态: {}", if status { "良好" } else { "异常" });
+    // 4. 获取统计信息
+    let stats = smart.statistics();
+    if let Some(temp) = stats.temperature {
+        println!("温度: {}", temp);  // 自动格式化为 "35.0°C"
+    }
+    if let Some(bad) = stats.bad_sectors {
+        println!("坏扇区: {}", bad);
+    }
+    
+    // 5. 检查健康状态
+    if disk.is_healthy()? {
+        println!("磁盘健康");
+    } else {
+        println!("警告: 磁盘可能即将故障!");
+    }
 
-    // 5. 解析SMART属性
-    let attributes = disk.parse_smart_attributes()?;
+    // 6. 解析 SMART 属性
+    let attributes = smart.parse_attributes()?;
     for attr in attributes {
         if attr.warn {
             println!("警告: 属性 {} (ID:{}) 异常!", attr.name, attr.id);
@@ -59,10 +69,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+### 从 Blob 文件读取数据
+
+```rust
+use libatasmart::{smart_info_from_blob, identify_from_blob};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // 读取 SMART 信息
+    let smart = smart_info_from_blob("tests/blobs/example.blob")?;
+    let stats = smart.statistics();
+    
+    // 读取 IDENTIFY 信息
+    let identify = identify_from_blob("tests/blobs/example.blob")?.parse()?;
+    println!("型号: {}", identify.model);
+    
+    Ok(())
+}
+```
 ### 从Blob文件读取数据
 
 ```rust
-use atasmart::disk_from_blob;
+use libatasmart::disk_from_blob;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut disk = disk_from_blob("tests/blobs/st3500320as.blob")?;

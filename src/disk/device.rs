@@ -1,5 +1,6 @@
 //! 磁盘设备操作
 
+use crate::disk::{IdentifyData, SmartData, SmartInfo, SmartThresholds};
 use crate::error::{Error, Result};
 use crate::ffi;
 use crate::types::*;
@@ -12,10 +13,6 @@ pub struct Disk {
     file: Option<File>,
     disk_type: DiskType,
     size: u64,
-    identify_data: Option<[u8; 512]>,
-    smart_data: Option<[u8; 512]>,
-    smart_thresholds: Option<[u8; 512]>,
-    smart_status: Option<bool>,
 }
 
 impl Disk {
@@ -28,10 +25,10 @@ impl Disk {
     /// # 示例
     ///
     /// ```no_run
-    /// use atasmart::Disk;
+    /// use libatasmart::Disk;
     ///
     /// let disk = Disk::open("/dev/sda")?;
-    /// # Ok::<(), atasmart::Error>(())
+    /// # Ok::<(), libatasmart::Error>(())
     /// ```
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
         let file = OpenOptions::new()
@@ -52,10 +49,6 @@ impl Disk {
             file: Some(file),
             disk_type,
             size,
-            identify_data: None,
-            smart_data: None,
-            smart_thresholds: None,
-            smart_status: None,
         })
     }
 
@@ -84,12 +77,12 @@ impl Disk {
     /// # 示例
     ///
     /// ```no_run
-    /// use atasmart::Disk;
+    /// use libatasmart::Disk;
     ///
     /// let disk = Disk::open("/dev/sda")?;
     /// let awake = disk.check_sleep_mode()?;
     /// println!("设备状态: {}", if awake { "活动" } else { "睡眠" });
-    /// # Ok::<(), atasmart::Error>(())
+    /// # Ok::<(), libatasmart::Error>(())
     /// ```
     pub fn check_sleep_mode(&self) -> Result<bool> {
         // Blob类型不支持
@@ -97,11 +90,6 @@ impl Disk {
             return Err(Error::NotSupported(
                 "Blob类型不支持睡眠模式检查".to_string(),
             ));
-        }
-
-        // 需要先有IDENTIFY数据
-        if self.identify_data.is_none() {
-            return Err(Error::NotSupported("需要先读取IDENTIFY数据".to_string()));
         }
 
         let fd = self.fd();
@@ -138,16 +126,20 @@ impl Disk {
     /// # 示例
     ///
     /// ```no_run
-    /// use atasmart::Disk;
+    /// use libatasmart::Disk;
     ///
-    /// let mut disk = Disk::open("/dev/sda")?;
-    /// disk.read_identify()?;
-    /// # Ok::<(), atasmart::Error>(())
+    /// let disk = Disk::open("/dev/sda")?;
+    /// let identify = disk.read_identify()?;
+    /// let info = identify.parse()?;
+    /// println!("型号: {}", info.model);
+    /// # Ok::<(), libatasmart::Error>(())
     /// ```
-    pub fn read_identify(&mut self) -> Result<()> {
+    pub fn read_identify(&self) -> Result<IdentifyData> {
         // Blob类型不支持
         if self.disk_type == DiskType::Blob {
-            return Ok(());
+            return Err(Error::NotSupported(
+                "Blob类型不支持读取IDENTIFY".to_string(),
+            ));
         }
 
         let fd = self.fd();
@@ -172,8 +164,7 @@ impl Disk {
             );
         }
 
-        self.identify_data = Some(data);
-        Ok(())
+        Ok(IdentifyData::new(data))
     }
 
     /// 从设备读取 SMART 数据
@@ -181,22 +172,25 @@ impl Disk {
     /// # 示例
     ///
     /// ```no_run
-    /// use atasmart::Disk;
+    /// use libatasmart::Disk;
     ///
-    /// let mut disk = Disk::open("/dev/sda")?;
-    /// disk.read_identify()?;
-    /// disk.read_smart_data()?;
-    /// # Ok::<(), atasmart::Error>(())
+    /// let disk = Disk::open("/dev/sda")?;
+    /// let smart_data = disk.read_smart_data()?;
+    /// let parsed = smart_data.parse()?;
+    /// # Ok::<(), libatasmart::Error>(())
     /// ```
-    pub fn read_smart_data(&mut self) -> Result<()> {
+    pub fn read_smart_data(&self) -> Result<SmartData> {
         // 检查SMART是否可用
-        if !self.is_smart_available()? {
+        let identify = self.read_identify()?;
+        if !Self::is_smart_available(&identify)? {
             return Err(Error::NotSupported("SMART功能不可用".to_string()));
         }
 
         // Blob类型不支持
         if self.disk_type == DiskType::Blob {
-            return Ok(());
+            return Err(Error::NotSupported(
+                "Blob类型不支持读取SMART数据".to_string(),
+            ));
         }
 
         let fd = self.fd();
@@ -220,8 +214,7 @@ impl Disk {
             Some(&mut data),
         )?;
 
-        self.smart_data = Some(data);
-        Ok(())
+        Ok(SmartData::new(data, self.size))
     }
 
     /// 从设备读取 SMART 阈值数据
@@ -229,22 +222,24 @@ impl Disk {
     /// # 示例
     ///
     /// ```no_run
-    /// use atasmart::Disk;
+    /// use libatasmart::Disk;
     ///
-    /// let mut disk = Disk::open("/dev/sda")?;
-    /// disk.read_identify()?;
-    /// disk.read_smart_thresholds()?;
-    /// # Ok::<(), atasmart::Error>(())
+    /// let disk = Disk::open("/dev/sda")?;
+    /// let thresholds = disk.read_smart_thresholds()?;
+    /// # Ok::<(), libatasmart::Error>(())
     /// ```
-    pub fn read_smart_thresholds(&mut self) -> Result<()> {
+    pub fn read_smart_thresholds(&self) -> Result<SmartThresholds> {
         // 检查SMART是否可用
-        if !self.is_smart_available()? {
+        let identify = self.read_identify()?;
+        if !Self::is_smart_available(&identify)? {
             return Err(Error::NotSupported("SMART功能不可用".to_string()));
         }
 
         // Blob类型不支持
         if self.disk_type == DiskType::Blob {
-            return Ok(());
+            return Err(Error::NotSupported(
+                "Blob类型不支持读取SMART阈值".to_string(),
+            ));
         }
 
         let fd = self.fd();
@@ -268,8 +263,25 @@ impl Disk {
             Some(&mut data),
         )?;
 
-        self.smart_thresholds = Some(data);
-        Ok(())
+        Ok(SmartThresholds::new(data))
+    }
+
+    /// 读取完整的 SMART 信息 (数据 + 阈值)
+    ///
+    /// # 示例
+    ///
+    /// ```no_run
+    /// use libatasmart::Disk;
+    ///
+    /// let disk = Disk::open("/dev/sda")?;
+    /// let smart = disk.read_smart()?;
+    /// let stats = smart.statistics();
+    /// # Ok::<(), libatasmart::Error>(())
+    /// ```
+    pub fn read_smart(&self) -> Result<SmartInfo> {
+        let data = self.read_smart_data()?;
+        let thresholds = self.read_smart_thresholds().ok();
+        Ok(SmartInfo::new(data, thresholds))
     }
 
     /// 获取 SMART 健康状态
@@ -282,23 +294,25 @@ impl Disk {
     /// # 示例
     ///
     /// ```no_run
-    /// use atasmart::Disk;
+    /// use libatasmart::Disk;
     ///
-    /// let mut disk = Disk::open("/dev/sda")?;
-    /// disk.read_identify()?;
-    /// let status = disk.smart_status()?;
+    /// let disk = Disk::open("/dev/sda")?;
+    /// let status = disk.is_healthy()?;
     /// println!("SMART状态: {}", if status { "良好" } else { "异常" });
-    /// # Ok::<(), atasmart::Error>(())
+    /// # Ok::<(), libatasmart::Error>(())
     /// ```
-    pub fn smart_status(&mut self) -> Result<bool> {
+    pub fn is_healthy(&self) -> Result<bool> {
         // 检查SMART是否可用
-        if !self.is_smart_available()? {
+        let identify = self.read_identify()?;
+        if !Self::is_smart_available(&identify)? {
             return Err(Error::NotSupported("SMART功能不可用".to_string()));
         }
 
-        // Blob类型使用缓存的状态
+        // Blob类型不支持
         if self.disk_type == DiskType::Blob {
-            return self.smart_status.ok_or(Error::NoData);
+            return Err(Error::NotSupported(
+                "Blob类型不支持健康状态查询".to_string(),
+            ));
         }
 
         let fd = self.fd();
@@ -342,7 +356,6 @@ impl Disk {
             .into());
         };
 
-        self.smart_status = Some(good);
         Ok(good)
     }
 
@@ -360,20 +373,19 @@ impl Disk {
     /// # 示例
     ///
     /// ```no_run
-    /// use atasmart::{Disk, SmartSelfTest};
+    /// use libatasmart::{Disk, SmartSelfTest};
     ///
-    /// let mut disk = Disk::open("/dev/sda")?;
-    /// disk.read_identify()?;
-    /// disk.read_smart_data()?;
+    /// let disk = Disk::open("/dev/sda")?;
     ///
     /// // 启动短时自检
-    /// disk.smart_self_test(SmartSelfTest::Short)?;
+    /// disk.start_self_test(SmartSelfTest::Short)?;
     /// println!("短时自检已启动");
-    /// # Ok::<(), atasmart::Error>(())
+    /// # Ok::<(), libatasmart::Error>(())
     /// ```
-    pub fn smart_self_test(&mut self, test: SmartSelfTest) -> Result<()> {
+    pub fn start_self_test(&self, test: SmartSelfTest) -> Result<()> {
         // 检查SMART是否可用
-        if !self.is_smart_available()? {
+        let identify = self.read_identify()?;
+        if !Self::is_smart_available(&identify)? {
             return Err(Error::NotSupported("SMART功能不可用".to_string()));
         }
 
@@ -382,17 +394,12 @@ impl Disk {
             return Err(Error::NotSupported("Blob类型不支持自检".to_string()));
         }
 
-        // 确保SMART数据已读取
-        if self.smart_data.is_none() {
-            // 尝试读取SMART数据
-            self.read_smart_data()?;
-        }
-
-        // 解析SMART数据以检查自检功能可用性
-        let smart_data = self.parse_smart()?;
+        // 读取SMART数据以检查自检功能可用性
+        let smart_data = self.read_smart_data()?;
+        let parsed = smart_data.parse()?;
 
         // 检查自检功能是否可用
-        if !smart_data.self_test_available(test) {
+        if !parsed.self_test_available(test) {
             return Err(Error::NotSupported(format!("{} 自检不可用", test.as_str())));
         }
 
@@ -421,40 +428,10 @@ impl Disk {
     }
 
     /// 检查SMART是否可用
-    fn is_smart_available(&self) -> Result<bool> {
-        let identify = self.identify_data.as_ref().ok_or(Error::NoData)?;
+    fn is_smart_available(identify: &IdentifyData) -> Result<bool> {
+        let raw = identify.raw();
         // IDENTIFY word 82 bit 0 表示SMART是否支持
-        Ok((identify[164] & 1) != 0)
-    }
-
-    /// 获取 IDENTIFY 数据
-    pub fn identify_data(&self) -> Option<&[u8; 512]> {
-        self.identify_data.as_ref()
-    }
-
-    /// 获取 SMART 数据
-    pub fn smart_data(&self) -> Option<&[u8; 512]> {
-        self.smart_data.as_ref()
-    }
-
-    /// 获取 SMART 阈值数据
-    pub fn smart_thresholds(&self) -> Option<&[u8; 512]> {
-        self.smart_thresholds.as_ref()
-    }
-
-    /// 设置 IDENTIFY 数据
-    pub(crate) fn set_identify_data(&mut self, data: [u8; 512]) {
-        self.identify_data = Some(data);
-    }
-
-    /// 设置 SMART 数据
-    pub(crate) fn set_smart_data(&mut self, data: [u8; 512]) {
-        self.smart_data = Some(data);
-    }
-
-    /// 设置 SMART 阈值数据
-    pub(crate) fn set_smart_thresholds(&mut self, data: [u8; 512]) {
-        self.smart_thresholds = Some(data);
+        Ok((raw[164] & 1) != 0)
     }
 
     /// 从 blob 数据创建 Disk 实例
@@ -463,80 +440,7 @@ impl Disk {
             file: None,
             disk_type: DiskType::Blob,
             size: 0,
-            identify_data: None,
-            smart_data: None,
-            smart_thresholds: None,
-            smart_status: None,
         })
-    }
-
-    /// 设置 SMART 状态
-    pub(crate) fn set_smart_status(&mut self, status: bool) {
-        self.smart_status = Some(status);
-    }
-
-    /// 获取 SMART 状态（内部使用）
-    pub(crate) fn get_smart_status_internal(&self) -> Option<bool> {
-        self.smart_status
-    }
-
-    /// 解析 IDENTIFY 数据
-    pub fn parse_identify(&self) -> crate::error::Result<crate::types::IdentifyParsedData> {
-        let identify_data = self
-            .identify_data
-            .as_ref()
-            .ok_or(crate::error::Error::NoData)?;
-
-        crate::identify::parse::parse_identify_data(identify_data)
-    }
-
-    /// 解析 SMART 数据
-    pub fn parse_smart(&self) -> crate::error::Result<crate::types::SmartParsedData> {
-        let smart_data = self
-            .smart_data
-            .as_ref()
-            .ok_or(crate::error::Error::NoData)?;
-
-        crate::smart::parse::parse_smart_data(smart_data)
-    }
-
-    /// 解析 SMART 属性
-    pub fn parse_smart_attributes(
-        &self,
-    ) -> crate::error::Result<Vec<crate::types::SmartAttributeParsedData>> {
-        let smart_data = self
-            .smart_data
-            .as_ref()
-            .ok_or(crate::error::Error::NoData)?;
-
-        let thresholds = self.smart_thresholds.as_ref();
-
-        let mut attributes = Vec::new();
-
-        // SMART 数据从字节 2 开始，每个属性 12 字节，共 30 个槽位
-        for i in 0..30 {
-            let offset = 2 + i * 12;
-            let attr_data = &smart_data[offset..offset + 12];
-
-            // 查找对应的阈值数据
-            let threshold_data = thresholds.and_then(|t| {
-                for j in 0..30 {
-                    let t_offset = 2 + j * 12;
-                    if t[t_offset] == attr_data[0] && attr_data[0] != 0 {
-                        return Some(&t[t_offset..t_offset + 12]);
-                    }
-                }
-                None
-            });
-
-            if let Some(attr) =
-                crate::smart::attributes::parse_attribute(attr_data, threshold_data, self.size)
-            {
-                attributes.push(attr);
-            }
-        }
-
-        Ok(attributes)
     }
 }
 

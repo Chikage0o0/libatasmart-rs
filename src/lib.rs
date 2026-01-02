@@ -10,20 +10,34 @@
 //!
 //! # 示例
 //!
-//! ```no_run,ignore
-//! use atasmart::Disk;
+//! ```no_run
+//! use libatasmart::Disk;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // 打开磁盘设备
 //! let disk = Disk::open("/dev/sda")?;
 //!
-//! // 读取 SMART 数据
-//! let smart_data = disk.parse_smart()?;
-//! println!("磁盘健康状态: {:?}", smart_data);
+//! // 读取并解析 IDENTIFY 数据
+//! let identify = disk.read_identify()?.parse()?;
+//! println!("型号: {}", identify.model);
+//! println!("序列号: {}", identify.serial);
 //!
-//! // 获取坏扇区数
-//! let bad_sectors = disk.smart_get_bad_sectors()?;
-//! println!("坏扇区数: {}", bad_sectors);
+//! // 读取 SMART 信息
+//! let smart = disk.read_smart()?;
+//!
+//! // 获取统计信息
+//! let stats = smart.statistics();
+//! if let Some(temp) = stats.temperature {
+//!     println!("温度: {}", temp); // 自动格式化为 "25.0°C"
+//! }
+//! if let Some(bad) = stats.bad_sectors {
+//!     println!("坏扇区: {}", bad);
+//! }
+//!
+//! // 检查健康状态
+//! if disk.is_healthy()? {
+//!     println!("磁盘健康");
+//! }
 //! # Ok(())
 //! # }
 //! ```
@@ -38,11 +52,11 @@ mod types;
 mod utils;
 
 // 公共导出
-pub use disk::Disk;
+pub use disk::{Disk, IdentifyData, SmartData, SmartInfo, SmartThresholds};
 pub use error::{Error, Result};
-pub use smart::{disk_from_blob, read_blob_from_file, BlobData};
+pub use smart::{identify_from_blob, read_blob_from_file, smart_info_from_blob, BlobData};
 pub use types::{
-    AttributeUnit, DiskType, IdentifyParsedData, OfflineDataCollectionStatus,
-    SelfTestExecutionStatus, SmartAttributeParsedData, SmartOverall, SmartParsedData,
-    SmartSelfTest,
+    AttributeUnit, DiskStatistics, DiskType, Duration, IdentifyParsedData,
+    OfflineDataCollectionStatus, SelfTestExecutionStatus, SmartAttributeParsedData, SmartOverall,
+    SmartParsedData, SmartSelfTest, Temperature,
 };

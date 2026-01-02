@@ -17,10 +17,6 @@ regex = "1.10"
 [dev-dependencies]
 # 用于集成测试
 
-[[example]]
-name = "skdump"
-path = "examples/skdump.rs"
-
 [lib]
-name = "atasmart"
+name = "libatasmart"
 path = "src/lib.rs"

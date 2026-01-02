@@ -2,7 +2,7 @@
 //!
 //! 演示如何启动硬盘SMART自检
 
-use atasmart::{Disk, Error, SmartSelfTest};
+use libatasmart::{Disk, Error, SmartSelfTest};
 use std::env;
 use std::process;
 
@@ -58,55 +58,64 @@ fn print_usage(program: &str) {
 
 fn run(device_path: &str, test_type: SmartSelfTest) -> Result<(), Error> {
     println!("正在打开设备: {}", device_path);
-    let mut disk = Disk::open(device_path)?;
+    let disk = Disk::open(device_path)?;
 
     println!("\n=== 基本信息 ===");
     println!("设备类型: {:?}", disk.disk_type());
 
-    // 读取IDENTIFY数据
+    // 读取并解析IDENTIFY数据
     println!("\n=== 读取设备信息 ===");
-    disk.read_identify()?;
-    println!("✓ IDENTIFY数据读取成功");
-
-    // 解析设备信息
-    match disk.parse_identify() {
-        Ok(identify) => {
-            println!("  型号: {}", identify.model);
-            println!("  序列号: {}", identify.serial);
-            println!("  固件版本: {}", identify.firmware);
-        }
-        Err(e) => {
-            println!("警告: 解析IDENTIFY数据失败: {}", e);
-        }
-    }
-
-    // 读取SMART数据
-    println!("\n=== 读取SMART数据 ===");
-    disk.read_smart_data()?;
-    println!("✓ SMART数据读取成功");
-
-    // 检查自检功能可用性
-    println!("\n=== 检查自检功能 ===");
-    match disk.parse_smart() {
-        Ok(smart) => {
-            println!(
-                "短时/扩展自检可用: {}",
-                smart.short_and_extended_test_available
-            );
-            println!("传输自检可用: {}", smart.conveyance_test_available);
-            println!("启动自检可用: {}", smart.start_test_available);
-            println!("中止自检可用: {}", smart.abort_test_available);
-
-            // 显示预计时间
-            if smart.self_test_available(test_type) {
-                let minutes = smart.self_test_polling_minutes(test_type);
-                if minutes > 0 {
-                    println!("\n{} 自检预计时间: {} 分钟", test_type.as_str(), minutes);
+    match disk.read_identify() {
+        Ok(identify_data) => {
+            println!("✓ IDENTIFY数据读取成功");
+            match identify_data.parse() {
+                Ok(identify) => {
+                    println!("  型号: {}", identify.model);
+                    println!("  序列号: {}", identify.serial);
+                    println!("  固件版本: {}", identify.firmware);
+                }
+                Err(e) => {
+                    println!("警告: 解析IDENTIFY数据失败: {}", e);
                 }
             }
         }
         Err(e) => {
-            println!("警告: 解析SMART数据失败: {}", e);
+            println!("警告: 读取IDENTIFY数据失败: {}", e);
+        }
+    }
+
+    // 读取SMART数据并检查自检功能
+    println!("\n=== 读取SMART数据 ===");
+    match disk.read_smart_data() {
+        Ok(smart_data) => {
+            println!("✓ SMART数据读取成功");
+
+            println!("\n=== 检查自检功能 ===");
+            match smart_data.parse() {
+                Ok(smart) => {
+                    println!(
+                        "短时/扩展自检可用: {}",
+                        smart.short_and_extended_test_available
+                    );
+                    println!("传输自检可用: {}", smart.conveyance_test_available);
+                    println!("启动自检可用: {}", smart.start_test_available);
+                    println!("中止自检可用: {}", smart.abort_test_available);
+
+                    // 显示预计时间
+                    if smart.self_test_available(test_type) {
+                        let minutes = smart.self_test_polling_minutes(test_type);
+                        if minutes > 0 {
+                            println!("\n{} 自检预计时间: {} 分钟", test_type.as_str(), minutes);
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("警告: 解析SMART数据失败: {}", e);
+                }
+            }
+        }
+        Err(e) => {
+            println!("警告: 读取SMART数据失败: {}", e);
         }
     }
 
@@ -114,7 +123,7 @@ fn run(device_path: &str, test_type: SmartSelfTest) -> Result<(), Error> {
     println!("\n=== 启动自检 ===");
     println!("正在启动 {} 自检...", test_type.as_str());
 
-    disk.smart_self_test(test_type)?;
+    disk.start_self_test(test_type)?;
 
     println!("✓ {} 自检已成功启动!", test_type.as_str());
 

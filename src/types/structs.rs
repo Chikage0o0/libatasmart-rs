@@ -122,6 +122,19 @@ impl SmartParsedData {
     }
 }
 
+/// 磁盘统计信息
+#[derive(Debug, Clone)]
+pub struct DiskStatistics {
+    /// 坏扇区总数
+    pub bad_sectors: Option<u64>,
+    /// 累计开机时间
+    pub power_on_duration: Option<Duration>,
+    /// 电源循环次数
+    pub power_cycle_count: Option<u64>,
+    /// 当前温度
+    pub temperature: Option<Temperature>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

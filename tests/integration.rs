@@ -2,7 +2,7 @@
 
 #[cfg(test)]
 mod integration_tests {
-    use atasmart::*;
+    use libatasmart::*;
 
     #[test]
     fn test_library_compiles() {
